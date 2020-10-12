@@ -1,5 +1,5 @@
 function forInTemplating(data = {}, n = 1) {
-    // not good 
+    // not complete
     let tmplt = document.querySelector(`[for-in-${n}]`)
     if (!tmplt) return
     let list = data[tmplt.getAttribute(`for-in-${n}`)]
@@ -13,9 +13,9 @@ function doTheTemplating(tmplt, data = {}) {
     const clon = tmplt.cloneNode(true)
     for (const key in data) {
         clon.innerHTML = clon.innerHTML.replace(
-            new RegExp(`{${key}}`, 'g'), match => {
-                return sanitize(data[key].toString())
-            })
+            new RegExp(`{${key}}`, 'g'),
+            _match => sanitize(data[key].toString())
+        )
     }
     const fragment = document.importNode(clon.content, true)
     tmplt.parentElement.insertBefore(fragment, tmplt.nextSibling)

@@ -1,9 +1,8 @@
 // TODO(you): Write the JavaScript necessary to complete the assignment.
 
-import req from './request.js'
 import htmlUtils from './templating.js'
 
-let response = {}
+let quiz = {}
 
 
 function tgglVis(selectors = []) {
@@ -17,11 +16,14 @@ function tgglVis(selectors = []) {
 
 document.querySelector('.start-btn').addEventListener("click", () => {
     tgglVis(['.loading-indct', '#introduction'])
-    req.post("https://wpr-quiz-api.herokuapp.com/attempts")
+    fetch('https://wpr-quiz-api.herokuapp.com/attempts', {
+        method: 'POST'
+    }).then(r => r.json())
         .then(res => {
             tgglVis(['.loading-indct', '.submit-btn-ctn'])
+            quiz = res
             // conversion
-            res.questions.forEach((q, i) => {
+            quiz.questions.forEach((q, i) => {
                 let answers = []
                 q.answers.forEach((a, i) => {
                     answers.push({
@@ -32,9 +34,8 @@ document.querySelector('.start-btn').addEventListener("click", () => {
                 q.answers = answers
                 q.index = i + 1
             })
-            // console.log(res)
-            htmlUtils.forInTemplating(res)
-            response = res
+            // console.log(quiz)
+            htmlUtils.forInTemplating(quiz)
         })
 })
 
@@ -44,14 +45,20 @@ document.querySelector('.submit-btn').addEventListener("click", () => {
         return // hai quay xe
     }
     tgglVis(['.loading-indct', '.submit-btn-ctn'])
-    const colected = {}
+    const colected = {answers:{}}
     document.querySelectorAll('.q__r__radio').forEach(c => {
         if (c.checked) {
             let cId = c.getAttribute("id").split('_')
-            colected[cId[0]] = Number(cId[1])
+            colected.answers[cId[0]] = cId[1]
         }
     })
-    req.post(`https://wpr-quiz-api.herokuapp.com/attempts/${response._id}/submit`, colected)
+    fetch(`https://wpr-quiz-api.herokuapp.com/attempts/${quiz._id}/submit`, {
+        method: 'POST',
+        headers: {
+            'Content-type': 'application/json'
+        },
+        body: JSON.stringify(colected)
+    }).then(r => r.json())
         .then(res => {
             tgglVis(['.loading-indct'])
             // console.log(res);
