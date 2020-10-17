@@ -111,10 +111,12 @@ button.--green-bg {
     margin-bottom: 1px;
     position: relative;
 }
-.q__r__radio-ctn *:not(.q__r__highlighter) {
+.q__r__radio-ctn *:not(.q__r__highlighter),
+.q__r__radio-ctn::after {
     z-index: 1;
     pointer-events: none;
-}.q__r__highlighter {
+}
+.q__r__highlighter {
     position: absolute;
     top: 0;
     left: 0;
@@ -139,7 +141,6 @@ button.--green-bg {
 .q__r__radio-ctn.correct-yes::after,
 .q__r__radio-ctn.correct-oops::after,
 .q__r__radio-ctn.wrong::after {
-    z-index: 1;
     content: "Correct answer";
     margin-left: auto;
     background-color: rgba(170, 170, 170, 0.5);
@@ -151,9 +152,6 @@ button.--green-bg {
     content: "Your answer";
 }
 
-.submit-btn-ctn {
-    transition: .2s;
-}
 #review-quiz .counter {
     font-size: 24px;
 }

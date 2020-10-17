@@ -13,11 +13,12 @@ function doTheTemplating(tmplt, data = {}) {
     const clon = tmplt.cloneNode(true)
     for (const key in data) {
         clon.innerHTML = clon.innerHTML.replace(
-            new RegExp(`{${key}}`, 'g'),
+            new RegExp(`\{${key}\}`, 'g'),
             _match => sanitize(data[key].toString())
         )
     }
     const fragment = document.importNode(clon.content, true)
+    fragment.firstElementChild.setAttribute("data-spawned", "")
     tmplt.parentElement.insertBefore(fragment, tmplt.nextSibling)
 }
 

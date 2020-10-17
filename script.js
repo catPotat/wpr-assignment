@@ -75,7 +75,7 @@ document.querySelector('.submit-btn').addEventListener("click", () => {
             for (const key in a) {
                 let toAdd = ""
                 document.querySelectorAll(`[id^="${key}"]`).forEach(c => {
-                    c.setAttribute("disabled", "true")
+                    c.setAttribute("disabled", "")
                     if (c.getAttribute('id').split('_')[1] == a[key]) {
                         toAdd = `correct-${c.checked ? "yes" : "oops"}`
                     } else {
@@ -90,8 +90,9 @@ document.querySelector('.submit-btn').addEventListener("click", () => {
 })
 
 
+const header = document.querySelector('.headr')
 function onRetryBtnClick() {
     htmlUtils.cleanUpMess()
     tgglVis(['#introduction'])
-    document.querySelector('.headr').scrollIntoView()
+    header.scrollIntoView()
 }
