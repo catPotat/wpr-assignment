@@ -16,7 +16,7 @@ function tgglVis(selectors = []) {
 
 document.querySelector('.start-btn').addEventListener("click", () => {
     tgglVis(['.loading-indct', '#introduction'])
-    fetch('https://wpr-quiz-api.herokuapp.com/attempts', {
+    fetch(`${process.env.BASE_API}/attempts`, {
         method: 'POST'
     }).then(r => r.json())
         .then(res => {
@@ -52,7 +52,7 @@ document.querySelector('.submit-btn').addEventListener("click", () => {
             colected.answers[cId[0]] = cId[1]
         }
     })
-    fetch(`https://wpr-quiz-api.herokuapp.com/attempts/${quiz._id}/submit`, {
+    fetch(`${process.env.BASE_API}/attempts/${quiz._id}/submit`, {
         method: 'POST',
         headers: {
             'Content-type': 'application/json'

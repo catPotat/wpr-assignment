@@ -1,0 +1,25 @@
+{
+  "name": "chained-assignment",
+  "version": "2.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "node server.js",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catPotat/wpr-assignment.git"
+  },
+  "author": "longng",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/catPotat/wpr-assignment/issues"
+  },
+  "homepage": "https://github.com/catPotat/wpr-assignment#readme",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "mongodb": "^3.6.3"
+  }
+}
