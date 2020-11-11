@@ -16,7 +16,7 @@ function tgglVis(selectors = []) {
 
 document.querySelector('.start-btn').addEventListener("click", () => {
     tgglVis(['.loading-indct', '#introduction'])
-    fetch(`${process.env.BASE_API}/attempts`, {
+    fetch(`http://localhost:3000/attempts`, {
         method: 'POST'
     }).then(r => r.json())
         .then(res => {
@@ -34,7 +34,7 @@ document.querySelector('.start-btn').addEventListener("click", () => {
                 q.answers = answers
                 q.index = i + 1
             })
-            // console.log(quiz)
+            console.log(quiz)
             htmlUtils.forInTemplating(quiz)
         })
 })
@@ -52,7 +52,7 @@ document.querySelector('.submit-btn').addEventListener("click", () => {
             colected.answers[cId[0]] = cId[1]
         }
     })
-    fetch(`${process.env.BASE_API}/attempts/${quiz._id}/submit`, {
+    fetch(`http://localhost:3000/attempts/${quiz._id}/submit`, {
         method: 'POST',
         headers: {
             'Content-type': 'application/json'
