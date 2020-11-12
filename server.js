@@ -7,13 +7,13 @@ app.use(express.static('static'))
 // decode req.body from post body message
 app.use(express.json())
 
-
+utils = require('./utils');
 
 const MongoClient = require('mongodb').MongoClient
 const ObjectId = require('mongodb').ObjectID
 const assert = require('assert')
 
-let db = undefined
+let db, Questions, Atempts
 const uri = `mongodb://${process.env.MONG_USER}:${process.env.MONG_PWD}@${process.env.MONG_HOST}:${process.env.MONG_PORT}/${process.env.MONG_DBNAME}`
 MongoClient.connect(uri, { useUnifiedTopology: true }, async (err, client) => {
     assert.strictEqual(null, err)
@@ -21,23 +21,25 @@ MongoClient.connect(uri, { useUnifiedTopology: true }, async (err, client) => {
     // console.log("Connected to db")
     await dbInit()
 })
-// Collections
-const Questions = db.collection('questions')
-const Atempts = db.collection('attempts')
 
 async function dbInit() {
+    // Collections
+    Questions = db.collection('questions')
+    Atempts = db.collection('attempts')
+
+    return
     // hard code some questions
     // await Questions.insertOne({
     //     _id: ObjectId(),
-    //     text: "The correct answer is one",
+    //     text: "The correct answer is three",
     //     answers: ['zero','one','two','three'],
-    //     trueAns: 1
+    //     trueAns: 3
     // })
     await Questions.deleteOne({ text: 'The correct answer is ' })
-    console.log("===============");
     const docs = await Questions.find().map(doc => doc._id).forEach(doc => {
         console.log(doc);
     })
+    console.log("===============");
 }
 
 
@@ -45,131 +47,142 @@ async function dbInit() {
 app.post('/attempts', async (_req, res) => {
     await Atempts.deleteMany()
     // TODO delete after test
-    const randomSet = await Questions.aggregate([{ $sample: { size: 10 } }]).toArray()
+    const randomSet = await Questions.aggregate([
+        { $sample: { size: 10 } },
+        { $unset: ["trueAns"] }
+        // Improvement 1: No cheating
+    ]).toArray()
 
     let newAttmp = await Atempts.insertOne({
         _id: ObjectId(),
+        // stores question ids in array
+        // objects are not ordered by standard
+        // reduces data redundancy
         questions: randomSet.map(doc => doc._id),
-        answers: Array.from({ length: randomSet.length }, () => null),
-        startedAt: Date.now(),
+        answers: Array.from({ length: randomSet.length }, () => undefined),
+        startedAt: new Date(),
         score: 0,
         scoreText: null
     })
     newAttmp = newAttmp.ops[0]
 
-    console.log(newAttmp);
-
     const result = {
         _id: newAttmp._id,
-        questions: randomSet.map(({ trueAns, ...keepAttrs }) => keepAttrs)
+        questions: randomSet,
+        startedAt: newAttmp.startedAt,
     }
-    // Improvement 1: No cheating
 
     res.status(201).json(result)
 })
 
 
-const scoreVerbose = [
-    "Practice more to improve it :D",
-    "Good, keep up!",
-    "Well done!",
-    "Perfect!"
-]
+function toOrderedAns(submittedAnsObj, attmp) {
+    // @params { 'qid1': 3, 'qid2': 2,... }, attempt<MongoObj>
+    // converts into ordered answers
+    // also discards of invalid question ids
+    const orderedQns = attmp.questions
+    const orderedAns = attmp.answers
+    orderedQns.forEach((qId, i) => {
+        orderedAns[i] = submittedAnsObj[qId]
+    })
+    // console.log(orderedAns);
+    return orderedAns
+}
+
 app.post('/attempts/:id/submit', async (req, res) => {
-    const attempId = req.params.id
-    const answers = req.body.answers
+    const attmp = await Atempts.findOne({ _id: ObjectId(req.params.id), scoreText: null })
+    if (attmp == null) {
+        return res.status(404).end()
+    } 
+
+    // score count
+    const qSet = await Questions.find({ _id: { $in: attmp.questions } }).toArray()
+    const orderedAns = toOrderedAns(req.body.answers, attmp)
+    let score = 0
+    let verbose = ""
+    attmp.questions.forEach((qId, i) => {
+        const ans = orderedAns[i]
+        // (?.) requires Node >= 14.0.0
+        // deals with data integerity
+        if (ans == qSet.find(q => q._id == String(qId))?.trueAns) {
+            score += 1
+        }
+    })
+    switch (true) {
+        case score < 5:
+            verbose = "Practice more to improve it :D"
+            break
+        case score < 7:
+            verbose = "Good, keep up!"
+            break
+        case score < 9:
+            verbose = "Well done!"
+            break
+        case score <= 10:
+            verbose = "Perfect!"
+            break
+    }
+    await Atempts.updateOne({ _id: ObjectId(attmp._id) }, {
+        $set: {
+            score: score,
+            scoreText: verbose,
+            answers: orderedAns,
+        }
+    }).catch(err => {
+        console.error(err)
+        return res.status(500).end()
+    })
+
+    const result = {
+        _id: attmp._id,
+        questions: qSet,
+        correctAnswers:
+            qSet.reduce((qaPair, q) => {
+                qaPair[q._id] = q.trueAns
+                return qaPair
+            }, {}),
+        answers: submittedAnsObj,
+        score: score,
+        scoreText: verbose,
+        completed: true
+    }
+
+    res.json(result)
+})
 
 
-    const debug = await Atempts.find().toArray()
-    console.log(debug[0]);
-    console.log("++++++++++++++++++");
-
-    let attmp = await Atempts.findOne({ _id: ObjectId(attempId), scoreText: null })
+app.get('/attempts/:id', async (req, res) => {
+    // Improvement 2
+    const attmp = await Atempts.findOne(
+        { _id: ObjectId(req.params.id) },
+        { _id: 1, questions: 1 }
+    )
     if (attmp == null) {
         return res.status(404).end()
     }
-    
-    const qSet = await Questions.find({ _id: { $in: attmp.questions } }).toArray()
-
-    // score count
-    let score = 0
-    let level = 0
-    for (const ans in answers) {
-        // (?.) requires Node >= 14.0.0
-        if (answers[ans] == qSet.find(q => q._id == ans)?.trueAns) {
-            score += 1
-        }
-    }
-    switch (score) {
-        case s => { s < 5 }:
-            level = 2
-            // TODO fix after testing
-            break
-        case s => { s < 7 }:
-            level = 1
-            break
-        case s => { s < 9 }:
-            level = 2
-            break
-        case s => { s <= 10 }:
-            level = 3
-            break
-    }
-    await Atempts.findOneAndUpdate({_id:ObjectId(attmp._id)}, {
-        $set: {
-            score: score,
-            scoreText: scoreVerbose[level],
-        }
-    })
-    console.log(attmp);
-    console.log("------------------");
-
-    const result = {
-        _id: attmp._id,
-        questions: qSet,
-        correctAnswers:
-            qSet.reduce((qaPair, q) => {
-                qaPair[q._id] = q.trueAns
-                return qaPair
-            }, {}),
-        answers: answers,
-        score: score,
-        scoreText: attmp.scoreText,
-        completed: true
-    }
-
-    res.json(result)
+    res.json(attmp)
 })
 
 
-app.get('/attempts/:id', async (_req, res) => {
-
-    const attmp = await Atempts.findOne({ _id: attempId })
-    if (attmp != null) {
+app.patch('/attempts/:id', async (req, res) => {
+    // Improvement 3
+    const attmp = await Atempts.findOne({ _id: ObjectId(req.params.id) })
+    if (attmp == null) {
         return res.status(404).end()
     }
-
-    const qSet = await Questions.find({ _id: { $in: attmp.questions } }).toArray()
-    const result = {
-        _id: attmp._id,
-        questions: qSet,
-        correctAnswers:
-            qSet.reduce((qaPair, q) => {
-                qaPair[q._id] = q.trueAns
-                return qaPair
-            }, {}),
-        answers: res,
-        score: score,
-        scoreText: attmp.scoreText,
-        completed: true
-    }
-
-    res.json(result)
+    const answers = toOrderedAns(req.body.answers, attmp)
+    console.log(answers);
+    await Atempts.updateOne({ _id: ObjectId(attmp._id) }, {
+        $set: { answers: answers }
+    }).catch(err => {
+        console.error(err)
+        return res.status(500).end()
+    })
+    res.json(attmp)
 })
 
 
 
-
-app.listen(process.env.EXPRESS_PORT, function () {
+app.listen(process.env.EXPRESS_PORT, () => {
     console.log(`Up at ${process.env.BASE_API}:${process.env.EXPRESS_PORT}`)
 })
