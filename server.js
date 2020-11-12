@@ -2,12 +2,12 @@ require('dotenv').config()
 
 const express = require('express')
 const app = express()
-// serve static files (html, css, js, images...)
 app.use(express.static('static'))
 // decode req.body from post body message
 app.use(express.json())
 
-utils = require('./utils');
+utils = require('./utils')
+
 
 const MongoClient = require('mongodb').MongoClient
 const ObjectId = require('mongodb').ObjectID
@@ -18,11 +18,7 @@ const uri = `mongodb://${process.env.MONG_USER}:${process.env.MONG_PWD}@${proces
 MongoClient.connect(uri, { useUnifiedTopology: true }, async (err, client) => {
     assert.strictEqual(null, err)
     db = client.db()
-    // console.log("Connected to db")
-    await dbInit()
-})
-
-async function dbInit() {
+    
     // Collections
     Questions = db.collection('questions')
     Atempts = db.collection('attempts')
@@ -40,13 +36,13 @@ async function dbInit() {
         console.log(doc);
     })
     console.log("===============");
-}
+})
 
 
 
 app.post('/attempts', async (_req, res) => {
-    await Atempts.deleteMany()
-    // TODO delete after test
+    // await Atempts.deleteMany()
+    // TODO testing purpose
     const randomSet = await Questions.aggregate([
         { $sample: { size: 10 } },
         { $unset: ["trueAns"] }
@@ -55,7 +51,7 @@ app.post('/attempts', async (_req, res) => {
 
     let newAttmp = await Atempts.insertOne({
         _id: ObjectId(),
-        // stores question ids in array
+        // store question ids in array because
         // objects are not ordered by standard
         // reduces data redundancy
         questions: randomSet.map(doc => doc._id),
@@ -76,19 +72,6 @@ app.post('/attempts', async (_req, res) => {
 })
 
 
-function toOrderedAns(submittedAnsObj, attmp) {
-    // @params { 'qid1': 3, 'qid2': 2,... }, attempt<MongoObj>
-    // converts into ordered answers
-    // also discards of invalid question ids
-    const orderedQns = attmp.questions
-    const orderedAns = attmp.answers
-    orderedQns.forEach((qId, i) => {
-        orderedAns[i] = submittedAnsObj[qId]
-    })
-    // console.log(orderedAns);
-    return orderedAns
-}
-
 app.post('/attempts/:id/submit', async (req, res) => {
     const attmp = await Atempts.findOne({ _id: ObjectId(req.params.id), scoreText: null })
     if (attmp == null) {
@@ -97,7 +80,7 @@ app.post('/attempts/:id/submit', async (req, res) => {
 
     // score count
     const qSet = await Questions.find({ _id: { $in: attmp.questions } }).toArray()
-    const orderedAns = toOrderedAns(req.body.answers, attmp)
+    const orderedAns = utils.toOrderedAns(req.body.answers, attmp)
     let score = 0
     let verbose = ""
     attmp.questions.forEach((qId, i) => {
@@ -141,7 +124,7 @@ app.post('/attempts/:id/submit', async (req, res) => {
                 qaPair[q._id] = q.trueAns
                 return qaPair
             }, {}),
-        answers: submittedAnsObj,
+        answers: req.body.answers,
         score: score,
         scoreText: verbose,
         completed: true
@@ -155,30 +138,49 @@ app.get('/attempts/:id', async (req, res) => {
     // Improvement 2
     const attmp = await Atempts.findOne(
         { _id: ObjectId(req.params.id) },
-        { _id: 1, questions: 1 }
+        { _id: 1, questions: 1, answers: 0 }
     )
     if (attmp == null) {
         return res.status(404).end()
     }
-    res.json(attmp)
+    const qnSet = await Questions.find(
+        { _id: { $in: attmp.questions } },
+        { trueAns: 0 }
+    ).toArray()
+    
+    // re-order questions
+    const toOrderedQnSet = ((qnSet, orderedQid) => {
+        const orderenQnSet = []
+        orderedQid.forEach(qnId => {
+            qn = qnSet.find(q => q._id == String(qnId))
+            orderenQnSet.push(qn)
+        })
+        return orderenQnSet
+    })
+
+    res.json({
+        ...attmp,
+        questions: toOrderedQnSet(qnSet, attmp.questions)
+    })
 })
 
 
 app.patch('/attempts/:id', async (req, res) => {
     // Improvement 3
-    const attmp = await Atempts.findOne({ _id: ObjectId(req.params.id) })
+    const attmp = await Atempts.findOne({ _id: ObjectId(req.params.id), scoreText: null })
     if (attmp == null) {
         return res.status(404).end()
     }
-    const answers = toOrderedAns(req.body.answers, attmp)
-    console.log(answers);
+    const answers = utils.toOrderedAns(req.body.answers, attmp)
+    // console.log(answers);
     await Atempts.updateOne({ _id: ObjectId(attmp._id) }, {
         $set: { answers: answers }
     }).catch(err => {
         console.error(err)
         return res.status(500).end()
     })
-    res.json(attmp)
+    
+    res.json(attmp.answers)
 })
 
 

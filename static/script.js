@@ -1,27 +1,22 @@
 // TODO(you): Write the JavaScript necessary to complete the assignment.
 
-import htmlUtils from './templating.js'
+import htmlTmpl from './templating.js'
+import utils from './common.js'
+
 
 let quiz = {}
 
-
-function tgglVis(selectors = []) {
-    selectors.forEach(sel => {
-        try {
-            document.querySelector(sel).classList.toggle('hidden')
-        } catch (error) { }
-    })
-}
-
-
 document.querySelector('.start-btn').addEventListener("click", () => {
-    tgglVis(['.loading-indct', '#introduction'])
-    fetch(`http://localhost:3000/attempts`, {
-        method: 'POST'
+    utils.tgglVis(['.loading-indct', '#introduction'])
+    // Improvement 2
+    const undoneAtt = localStorage.getItem('undoneAtt') || ''
+    fetch(`http://localhost:3000/attempts/${undoneAtt}`, {
+        method: undoneAtt ? 'GET' : 'POST'
     }).then(r => r.json())
         .then(res => {
-            tgglVis(['.loading-indct', '.submit-btn-ctn'])
+            utils.tgglVis(['.loading-indct', '.submit-btn-ctn'])
             quiz = res
+            localStorage.setItem('undoneAtt', quiz._id)
             // conversion
             quiz.questions.forEach((q, i) => {
                 let answers = []
@@ -35,7 +30,8 @@ document.querySelector('.start-btn').addEventListener("click", () => {
                 q.index = i + 1
             })
             console.log(quiz)
-            htmlUtils.forInTemplating(quiz)
+            htmlTmpl.forInTemplating(quiz)
+            // hỏi thầy xem có phải checkbox ko
         })
 })
 
@@ -44,34 +40,29 @@ document.querySelector('.submit-btn').addEventListener("click", () => {
     if (!confirm("Finish attempt?")) {
         return // hai quay xe
     }
-    tgglVis(['.loading-indct', '.submit-btn-ctn'])
-    const colected = {answers:{}}
-    document.querySelectorAll('.q__r__radio').forEach(c => {
-        if (c.checked) {
-            let cId = c.getAttribute("id").split('_')
-            colected.answers[cId[0]] = cId[1]
-        }
-    })
+    utils.tgglVis(['.loading-indct', '.submit-btn-ctn'])
+    const collected = utils.collectAns()
     fetch(`http://localhost:3000/attempts/${quiz._id}/submit`, {
         method: 'POST',
         headers: {
             'Content-type': 'application/json'
         },
-        body: JSON.stringify(colected)
+        body: JSON.stringify(collected)
     }).then(r => r.json())
         .then(res => {
-            tgglVis(['.loading-indct'])
+            localStorage.removeItem('undoneAtt')
+            utils.tgglVis(['.loading-indct'])
             // console.log(res);
             const data = {
                 score: res.score,
                 feedback: res.scoreText,
                 percentage: res.score / res.questions.length * 100 + '%',
             }
-            htmlUtils.doTheTemplating(document.querySelector('#result-scrn'), data)
+            htmlTmpl.doTheTemplating(document.querySelector('#result-scrn'), data)
             document.querySelector('.retry-btn').addEventListener("click", onRetryBtnClick)
 
             // display correct answers
-            let a = res.correctAnswers
+            const a = res.correctAnswers
             for (const key in a) {
                 let toAdd = ""
                 document.querySelectorAll(`[id^="${key}"]`).forEach(c => {
@@ -87,12 +78,38 @@ document.querySelector('.submit-btn').addEventListener("click", () => {
                 })
             }
         })
+        .finally(() => {
+            localStorage.removeItem('undoneAtt')
+        })
 })
 
 
 const header = document.querySelector('.headr')
 function onRetryBtnClick() {
-    htmlUtils.cleanUpMess()
-    tgglVis(['#introduction'])
+    htmlTmpl.cleanUpMess()
+    utils.tgglVis(['#introduction'])
     header.scrollIntoView()
 }
+
+
+
+// Improvement 3
+const DEBOUNCE = 2000 // milisec
+let timeOut
+document.querySelector('#attempt-quiz').addEventListener("click", () => {
+    clearTimeout(timeOut)
+    timeOut = setTimeout(() => {
+        const collected = utils.collectAns()
+        fetch(`http://localhost:3000/attempts/${quiz._id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-type': 'application/json'
+            },
+            body: JSON.stringify(collected)
+        }).then(r => r.json())
+            .then(res => {
+                console.log("Auto saved")
+            })
+            .catch(err => {})
+    }, DEBOUNCE)
+})
