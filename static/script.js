@@ -31,7 +31,15 @@ document.querySelector('.start-btn').addEventListener("click", () => {
             })
             console.log(quiz)
             htmlTmpl.forInTemplating(quiz)
-            // hỏi thầy xem có phải checkbox ko
+            
+            // restore answers
+            // quiz.questions, quiz.answers are ordered
+            quiz.questions.forEach((q, i) => {
+                const ans = quiz.answers[i]
+                if (ans) {
+                    document.querySelector(`[id="${q._id}_${ans}"]`).checked = true
+                }
+            })
         })
 })
 

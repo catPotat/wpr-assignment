@@ -137,8 +137,7 @@ app.post('/attempts/:id/submit', async (req, res) => {
 app.get('/attempts/:id', async (req, res) => {
     // Improvement 2
     const attmp = await Atempts.findOne(
-        { _id: ObjectId(req.params.id) },
-        { _id: 1, questions: 1, answers: 0 }
+        { _id: ObjectId(req.params.id) }
     )
     if (attmp == null) {
         return res.status(404).end()
@@ -180,7 +179,7 @@ app.patch('/attempts/:id', async (req, res) => {
         return res.status(500).end()
     })
     
-    res.json(attmp.answers)
+    res.json(answers)
 })
 
 
