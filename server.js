@@ -6,8 +6,9 @@ app.use(express.static('static'))
 // decode req.body from post body message
 app.use(express.json())
 
-utils = require('./utils')
+routes = require('./routes')
 
+utils = require('./common')
 
 const MongoClient = require('mongodb').MongoClient
 const ObjectId = require('mongodb').ObjectID
@@ -186,4 +187,9 @@ app.patch('/attempts/:id', async (req, res) => {
 
 app.listen(process.env.EXPRESS_PORT, () => {
     console.log(`Up at ${process.env.BASE_API}:${process.env.EXPRESS_PORT}`)
+    app.use((req, res, next) => {
+        req.Atempts = Atempts
+        next()
+    })
+    app.use(routes)
 })
