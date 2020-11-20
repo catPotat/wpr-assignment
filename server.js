@@ -165,25 +165,6 @@ app.get('/attempts/:id', async (req, res) => {
 })
 
 
-app.patch('/attempts/:id', async (req, res) => {
-    // Improvement 3
-    const attmp = await Atempts.findOne({ _id: ObjectId(req.params.id), scoreText: null })
-    if (attmp == null) {
-        return res.status(404).end()
-    }
-    const answers = utils.toOrderedAns(req.body.answers, attmp)
-    // console.log(answers);
-    await Atempts.updateOne({ _id: ObjectId(attmp._id) }, {
-        $set: { answers: answers }
-    }).catch(err => {
-        console.error(err)
-        return res.status(500).end()
-    })
-    
-    res.json(answers)
-})
-
-
 
 app.listen(process.env.EXPRESS_PORT, () => {
     console.log(`Up at ${process.env.BASE_API}:${process.env.EXPRESS_PORT}`)
